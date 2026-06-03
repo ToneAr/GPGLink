@@ -34,6 +34,7 @@ GPGEncryptFile[
 		Enclose[
 			res = RunProcess[{$gpg,
 					"--batch",
+					"--pinentry-mode", "loopback",
 					"--recipient", recipient,
 					"-o", output,
 					"--encrypt", loc
@@ -60,11 +61,10 @@ GPGEncryptFile[
 		]
 	];
 
-
 (* -------------------------------------------------------------------------- *)
 (* ::Section:: *)(* GPGDecryptFile *)
 (* Description:  Decrypt a GPG-encrypted file.
- * Return:       _String | _Failure
+ * Return: _String | _Failure
  *)
 GPGDecryptFile::fail = "``";
 GPGDecryptFile::stderr = "``";
@@ -72,6 +72,7 @@ GPGDecryptFile // Options = {
 	ProcessDirectory -> Automatic
 };
 GPGDecryptFile[
+	passphrase_String,
 	loc_String?(FileExistsQ),
 	out: (Automatic | _String) : Automatic,
 	OptionsPattern[]
@@ -84,6 +85,8 @@ GPGDecryptFile[
 		Enclose[
 			res = RunProcess[{$gpg,
 					"--batch",
+					"--pinentry-mode", "loopback",
+					"--passphrase", passphrase,
 					"-o", output,
 					"--decrypt", loc
 				},
@@ -120,7 +123,7 @@ GPGEncrypt // Options = {
 	"OutputFormat" -> "String"
 };
 GPGEncrypt[recipient_String, in_String, OptionsPattern[]] := Module[{
-		res, outType, fmtFunc
+		res, outType, fmtFunc, proc
 	},
 	Enclose[
 		Switch[OptionValue["OutputFormat"],
@@ -133,29 +136,29 @@ GPGEncrypt[recipient_String, in_String, OptionsPattern[]] := Module[{
 			_,
 				Confirm[$Failed, "Invalid OutputFormat option"]
 		];
-		res = RunProcess[{"echo", StringReplace[in,
-			{
-				"\n" -> "\\n",
-				"\r" -> "\\r"
-			}
-		],"|", $gpg,
+		proc = StartProcess[{$gpg,
 			"--batch",
+			"--pinentry-mode", "loopback",
 			outType,
 			"--recipient", recipient,
 			"-o", "-",
 			"-e"
 		}];
+		WriteString[proc, in];
+		Close @ ProcessConnection[proc, "StandardInput"] ;
+		res = ReadString[proc];
+		KillProcess[proc];
 		ConfirmAssert[
-			res["ExitCode"] === 0,
+			StringQ[res],
 			"Failed to encrypt input string"
 		];
-		fmtFunc @ res["StandardOutput"] 
+		fmtFunc @ res
 		,
 		(* OnError *)
 		Function[{err},
 			Message[GPGEncrypt::fail, err["Information"]];
 			If[AssociationQ[res] && KeyExistsQ[res,"StandardError"],
-				Message[GPGEncrypt::stderr, res["StandardError"]]
+				Message[GPGEncrypt::stderr, res]
 			];
 			$Failed
 		]
@@ -170,7 +173,7 @@ GPGEncrypt[recipient_String, in_String, OptionsPattern[]] := Module[{
  *)
 GPGDecrypt::fail = "``";
 GPGDecrypt::stderr = "``";
-GPGDecrypt[in_String] := Module[{
+GPGDecrypt[in_String, passphrase_String : ""] := Module[{
 		proc, res
 	},
 	Enclose[
@@ -178,12 +181,13 @@ GPGDecrypt[in_String] := Module[{
 			proc = StartProcess[{$gpg,
 				"--batch",
 				"--pinentry-mode", "loopback",
-				(* "--passphrase", passphrase, *)
+				"--passphrase", passphrase,
 				"-o", "-",
 				"-d"
 			}],
 			WriteString[proc, in];
-			res = ReadLine[proc];
+			Close[ProcessConnection[proc,"StandardInput"]];
+			res = ReadString[proc];
 			ConfirmAssert[
 				StringQ[res],
 				"Failed to decrypt input string"
@@ -198,7 +202,7 @@ GPGDecrypt[in_String] := Module[{
 		Function[{err},
 			Message[GPGDecrypt::fail, err["Information"]];
 			If[AssociationQ[res] && KeyExistsQ[res,"StandardError"],
-				Message[GPGDecrypt::stderr, res["StandardError"]]
+				Message[GPGDecrypt::stderr, res["standardError"]]
 			];
 			$Failed
 		]

@@ -5,7 +5,15 @@ BeginPackage["`Common`", {
 
 Begin["`Private`"];
 
-$gpg = PacletObject["ToneAr/GPGLink"]["AssetLocation", "bin/gpg"];
+$gpg = If[Quiet[RunProcess[{"gpg", "-h"}, "ExitCode"] === 0],
+	"gpg",
+	FileNameJoin[PacletObject["ToneAr/GPGLink"]["AssetLocation", "bin/"], "gpg.exe"]
+];
+
+If[!StringQ[$gpg],
+	Print["GPG executable not found"];
+	Abort[]
+];
 
 End[];
 EndPackage[];

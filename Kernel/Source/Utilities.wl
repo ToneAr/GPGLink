@@ -25,7 +25,12 @@ GPGImportKeyPair[keys: KeyValuePattern[{
 		},
 		Enclose[
 			Function[
-				res = RunProcess[{$gpg, "--import", #}];
+				res = RunProcess[{$gpg,
+					"--batch",
+					"--yes",
+					"--pinentry-mode", "loopback",
+					"--import", #
+				}];
 				ConfirmAssert[
 					res["ExitCode"] === 0,
 					"Failed to import key " <> #
@@ -64,7 +69,7 @@ GPGDeleteKeyPair[fprint_String] := Module[{
 		}];
 		ConfirmAssert[
 			res["ExitCode"] === 0,
-			"Failed to delete secret key" 
+			"Failed to delete secret key"
 		];
 		res = RunProcess[{$gpg,
 			"--batch", "--yes",
@@ -73,7 +78,7 @@ GPGDeleteKeyPair[fprint_String] := Module[{
 		}];
 		ConfirmAssert[
 			res["ExitCode"] === 0,
-			"Failed to delete public key" 
+			"Failed to delete public key"
 		];
 		Success["gpg-delete-success",
 			<|
@@ -132,7 +137,7 @@ GPGListKeyPairs[] := Module[{
 							fprintSub : WordCharacter .. ~~
 							WhitespaceCharacter ...
 						))
-						
+
 					)
 				) :> ReplaceAll[
 					<|
@@ -200,7 +205,7 @@ GPGCreateKeyPair // Options = {
 	"ExpiresIn" -> "0",
 	"KeyCurve" -> "default"
 };
-GPGCreateKeyPair[userId_String, passphrase_String, OptionsPattern[]] := Module[{
+GPGCreateKeyPair[userId_String, passphrase_String: None, OptionsPattern[]] := Module[{
 		keyParams, tmpFile, res
 	},
 	Enclose[
@@ -242,15 +247,18 @@ GPGCreateKeyPair[userId_String, passphrase_String, OptionsPattern[]] := Module[{
 					"Key-Length: "  <> ToString[ First @ OptionValue["KeySize"] ],
 					"Subkey-Length: " <> ToString[ Last @ OptionValue["KeySize"] ],
 					"Name-Real: " <> userId,
-					"Name-Email: " <> Replace[
-						OptionValue["Email"],
-						None -> ""
+					If[ OptionValue["Email"] =!= None,
+						"Name-Email: " <> OptionValue["Email"],
+						Nothing
 					],
 					"Expire-Date: " <> StringTemplate["``d"][
 						OptionValue["ExpiresIn"] //
 						Quantity[#, "Day"]& /* QuantityMagnitude
 					],
-					"Passphrase: "<>passphrase,
+					If[ MatchQ[passphrase, Except["" | None]],
+						"Passphrase: "<>passphrase,
+						Nothing
+					],
 					"%commit"
 				},
 				"\n"
@@ -278,7 +286,7 @@ GPGCreateKeyPair[userId_String, passphrase_String, OptionsPattern[]] := Module[{
 		];
 		ConfirmAssert[
 			res["ExitCode"] === 0,
-			"Failed to create GPG key pair." 
+			"Failed to create GPG key pair."
 		];
 		Success["gpg-create-success",
 			<|

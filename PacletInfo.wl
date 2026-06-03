@@ -1,7 +1,7 @@
 PacletObject[
 	<|
 		"Name" -> "ToneAr/GPGLink",
-		"Version" -> "0.0.1",
+		"Version" -> "0.0.2",
 		"WolframVersion" -> "12.2+",
 		"PublisherID" -> "ToneAr",
 		"Description" -> "GPGLink provides functions to manage GPG keys and perform cryptographic operations.",
@@ -13,13 +13,12 @@ PacletObject[
 					"Context" -> "ToneAr`GPGLink`"
 				},
 				{"Asset",
-					"Root" -> "Resources/Windows/bin",
+					"Root" -> "Resources/Windows/",
 					"SystemID" -> "Windows-x86-64",
 					"Assets" -> {
-						{"bin/gpg", "gpg.exe"}
+						{"bin/", "bin/"}
 					}
-				},
-				{"Documentation"}
+				}
 			}
 	|>
 ]
